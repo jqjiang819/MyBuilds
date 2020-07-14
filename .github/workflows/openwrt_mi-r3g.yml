@@ -1,0 +1,109 @@
+name: Openwrt (Mi R3G)
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/openwrt_mi-r3g.yml'
+      - 'openwrt/mi-r3g/*'
+      - 'openwrt/common/*'
+
+env:
+  OPENWRT_REPO: https://github.com/coolsnowwolf/lede.git
+  OPENWRT_BRANCH: master
+
+  WORk_DIR: work
+  OPENWRT_DIR: work/openwrt
+
+  CUSTOM_FEEDS: openwrt/mi-r3g/feeds.conf
+  CONFIG_FILE: openwrt/mi-r3g/config
+
+  SH_INIT_ENV: openwrt/common/init_env.sh
+  SH_FETCH_ADDONS: openwrt/common/fetch_addons.sh
+  SH_CUSTOMIZE: openwrt/common/customize.sh
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+
+      - name: Environment Initialization
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          chmod +x openwrt/common/*.sh
+          sudo ./$SH_INIT_ENV
+          sudo mkdir -p /work
+          sudo chown $USER:$GROUPS /work
+          ln -sf /work $WORK_DIR
+
+      - name: Fetch Openwrt & Packages Source
+        run: |
+          git clone --depth 1 $OPENWRT_REPO -b $OPENWRT_BRANCH $OPENWRT_DIR
+          [ -e $SH_FETCH_ADDONS ] && ./$SH_FETCH_ADDONS
+
+      - name: Load & Install Feeds
+        run: |
+          [ -e $CUSTOM_FEEDS ] && cp $CUSTOM_FEEDS $OPENWRT_DIR/feed.conf.default
+          cd $OPENWRT_DIR
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Run Customization
+        run: |
+          [ -e $SH_CUSTOMIZE ] && ./$SH_CUSTOMIZE
+
+      - name: Load Configuration
+        run: |
+          [ -e $CONFIG_FILE ] && cp $CONFIG_FILE $OPENWRT_DIR/.config
+
+      - name: Download Package
+        working-directory: ${{ env.OPENWRT_DIR }}
+        run: |
+          make defconfig
+          make download -j8
+
+      - name: Build Binaries
+        working-directory: ${{ env.OPENWRT_DIR }}
+        run: |
+          echo -e "$(nproc) thread compile"
+          make -j$(nproc) || make -j1 || make -j1 V=s
+          echo "::set-output name=status::success"
+          echo "::set-env name=BUILD_DATE::$(date +"%y%m%d.%H%M")"
+
+      # - name: Upload Binaries
+      #   uses: actions/upload-artifact@master
+      #   with:
+      #     name: OpenWRT_Mi-R3G_${{ env.BUILD_DATE }}
+      #     path: ${{ env.OPENWRT_DIR }}/bin/targets/ramips/mt7621
+
+      - name: Compress Binaries
+        run: |
+          rm -rf $OPENWRT_DIR/bin/targets/ramips/mt7621/packages
+          zip -r artifact.zip $OPENWRT_DIR/bin/targets/ramips/mt7621/
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.BUILD_DATE }}
+          release_name: OpenWRT_Mi-R3G_${{ env.BUILD_DATE }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Assets
+        id: upload_release_assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./artifact.zip
+          asset_name: OpenWRT_Mi-R3G_${{ env.BUILD_DATE }}.zip
+          asset_content_type: application/zip
