@@ -1,4 +1,4 @@
-name: Openwrt (Mi R3G)
+name: OpenWRT (Mi R3G)
 
 on:
   push:
@@ -83,8 +83,8 @@ jobs:
 
       - name: Compress Binaries
         run: |
-          rm -rf $OPENWRT_DIR/bin/targets/ramips/mt7621/packages
-          zip -r artifact.zip $OPENWRT_DIR/bin/targets/ramips/mt7621/
+          cd $OPENWRT_DIR/bin/targets/ramips/mt7621 && rm -rf packages
+          zip -r $GITHUB_WORKSPACE/artifact.zip ./
 
       - name: Create Release
         id: create_release
