@@ -8,6 +8,8 @@ on:
       - '.github/workflows/openwrt_mi-r3g.yml'
       - 'openwrt/mi-r3g/*'
       - 'openwrt/common/*'
+  schedule:
+    - cron: 0 16 * * 5
 
 env:
   OPENWRT_REPO: https://github.com/coolsnowwolf/lede.git
