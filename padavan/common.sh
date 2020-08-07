@@ -21,4 +21,6 @@ sed -i '/CONFIG_FIRMWARE_INCLUDE_SMARTDNS/d' .config
 sed -i '/CONFIG_FIRMWARE_INCLUDE_SRELAY/d' .config
 sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
 
+sed -i 's/studygolang.com\/dl\/golang/golang.org\/dl/g' tools/Makefile
+
 popd
