@@ -1,15 +1,18 @@
-name: Padavan (Mi R3G)
+name: Padavan
 
 on:
   push:
     branches:
       - master
     paths:
-      - '.github/workflows/padavan_mi-r3g.yml'
+      - '.github/workflows/padavan.yml'
       - 'padavan/common.sh'
-      - 'padavan/mi-r3g.sh'
+      - 'padavan/apps.sh'
   schedule:
     - cron: 0 16 * * 5
+
+env:
+  MODELS: "MI-R3G RM2100"
 
 jobs:
   build:
@@ -35,18 +38,19 @@ jobs:
           sh dl_toolchain.sh
           mkdir -p /opt/images/
 
-      - name: Run Customization
+      - name: Run Customization & Build Firmware
         run: |
           chmod +x padavan/*.sh
-          ./padavan/common.sh MI-R3G
-          ./padavan/mi-r3g.sh
-
-      - name: Build Firmware
-        working-directory: /opt/rt-n56u/trunk
-        run: |
+          for m in $MODELS;
+          do
+          ./padavan/common.sh $m
+          ./padavan/apps.sh
+          pushd /opt/rt-n56u/trunk
           sudo ./clear_tree
-          sudo ./build_firmware_modify MI-R3G 0
+          sudo ./build_firmware_modify $m 0
           sudo mv -f images/*.trx /opt/images/
+          popd
+          done
           echo "::set-output name=status::success"
           echo "::set-env name=BUILD_DATE::$(date +"%y%m%d.%H%M")"
 
@@ -57,17 +61,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ env.BUILD_DATE }}
-          release_name: Padavan_Mi-R3G_${{ env.BUILD_DATE }}
+          release_name: Padavan_${{ env.BUILD_DATE }}
           draft: false
           prerelease: false
 
       - name: Upload Release Assets
-        id: upload_release_assets
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: csexton/release-asset-action@v2
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: /opt/images/MI-R3G_3.4.3.9-099.trx
-          asset_name: Padavan_Mi-R3G_${{ env.BUILD_DATE }}.trx
-          asset_content_type: application/octet-stream
+          pattern: "/opt/images/*"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          release-url: ${{ steps.create_release.outputs.upload_url }}
