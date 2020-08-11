@@ -12,7 +12,7 @@ on:
     - cron: 0 16 * * 5
 
 env:
-  MODELS: "MI-R3G RM2100"
+  MODELS: "MI-R3G"
 
 jobs:
   build:
