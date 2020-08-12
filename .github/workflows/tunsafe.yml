@@ -1,0 +1,61 @@
+name: Tunsafe
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/tunsafe.yml'
+  watch:
+    types: [started]
+
+jobs:
+  linux:
+    runs-on: ubuntu-18.04
+    if: github.event.repository.owner.id == github.event.sender.id
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+      
+      - name: Fetch Tunsafe Source
+        run: |
+          mkdir src
+          git clone --depth 1 https://github.com/TunSafe/TunSafe.git src/tunsafe
+      
+      - name: Build
+        run: |
+          cd src/tunsafe
+          sh ./build_linux.sh
+
+      - name: Upload Binaries
+        uses: actions/upload-artifact@master
+        with:
+          name: tunsafe_linux
+          path: src/tunsafe/tunsafe
+    
+  macos:
+    runs-on: macos-latest
+    if: github.event.repository.owner.id == github.event.sender.id
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+      
+      - name: Fetch Tunsafe Source
+        run: |
+          mkdir src
+          git clone --depth 1 https://github.com/TunSafe/TunSafe.git src/tunsafe
+      
+      - name: Build
+        run: |
+          cd src/tunsafe
+          sh ./build_osx.sh
+
+      - name: Upload Binaries
+        uses: actions/upload-artifact@master
+        with:
+          name: tunsafe_osx
+          path: |
+            src/tunsafe/tunsafe
+            src/tunsafe/readme_osx.txt
