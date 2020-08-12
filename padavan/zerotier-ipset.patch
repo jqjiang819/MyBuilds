@@ -1,0 +1,91 @@
+diff --git a/trunk/user/zerotier/zerotier.sh b/trunk/user/zerotier/zerotier.sh
+index bc4aa82fa..93e4a0f1c 100755
+--- a/trunk/user/zerotier/zerotier.sh
++++ b/trunk/user/zerotier/zerotier.sh
+@@ -54,6 +54,11 @@ rules() {
+ 	iptables -A INPUT -i $zt0 -j ACCEPT
+ 	iptables -A FORWARD -i $zt0 -o $zt0 -j ACCEPT
+ 	iptables -A FORWARD -i $zt0 -j ACCEPT
++	# for ipset fwmark
++	iptables -t mangle -N fwmark
++	iptables -t mangle -A PREROUTING -j fwmark
++	iptables -t mangle -A OUTPUT -j fwmark
++	iptables -t mangle -A INPUT -j fwmark
+ 	if [ $nat_enable -eq 1 ]; then
+ 		iptables -t nat -A POSTROUTING -o $zt0 -j MASQUERADE
+ 		while [ "$(ip route | grep "dev $zt0  proto" | awk '{print $1}')" = "" ]; do
+@@ -63,7 +68,8 @@ rules() {
+ 		iptables -t nat -A POSTROUTING -s $ip_segment -j MASQUERADE
+ 		zero_route "add"
+ 	fi
+-
++	# disable rp_filter for zerotier devs
++	for i in /proc/sys/net/ipv4/conf/zt*/rp_filter ; do echo 0 > $i; done
+ }
+ 
+ del_rules() {
+@@ -75,9 +81,15 @@ del_rules() {
+ 	iptables -D INPUT -i $zt0 -j ACCEPT 2>/dev/null
+ 	iptables -t nat -D POSTROUTING -o $zt0 -j MASQUERADE 2>/dev/null
+ 	iptables -t nat -D POSTROUTING -s $ip_segment -j MASQUERADE 2>/dev/null
++	# for ipset fwmark
++	iptables -t mangle -D PREROUTING -j fwmark >/dev/null
++	iptables -t mangle -D OUTPUT -j fwmark >/dev/null
++	iptables -t mangle -D INPUT -j fwmark >/dev/null
++	iptables -t mangle -X fwmark >/dev/null
+ }
+ 
+ zero_route(){
++	zt0=$(ifconfig | grep zt | awk '{print $1}')
+ 	rulesnum=`nvram get zero_staticnum_x`
+ 	for i in $(seq 1 $rulesnum)
+ 	do
+@@ -85,14 +97,32 @@ zero_route(){
+ 		route_enable=`nvram get zero_enable_x$j`
+ 		zero_ip=`nvram get zero_ip_x$j`
+ 		zero_route=`nvram get zero_route_x$j`
++		zero_ip_type=`echo $zero_ip | grep -E "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(/[0-9]{1,2})?$"`
+ 		if [ "$1" = "add" ]; then
+-		if [ $route_enable -ne 0 ]; then
+-			ip route add $zero_ip via $zero_route dev $zt0
+-			echo "$zt0"
++			if [ $route_enable -ne 0 ]; then
++				logger -t "zerotier" "设置到 $zero_ip 的转发规则"
++				if [ "$zero_ip_type" = "$zero_ip" ]; then
++					ip route add $zero_ip via $zero_route dev $zt0
++				else
++					iptables -t mangle -A fwmark -m set --match-set $zero_ip dst -j MARK --set-mark 12$j
++					ip route flush table 12$j
++					ip route add default via $zero_route table 12$j
++					ip rule add fwmark 12$j table 12$j
++				fi
++			fi
++		else
++			logger -t "zerotier" "清除到 $zero_ip 的转发规则"
++			if [ "$zero_ip_type" = "$zero_ip" ]; then
++				ip route del $zero_ip via $zero_route dev $zt0
++			else
++				echo "1"
++				iptables -t mangle -D fwmark -m set --match-set $zero_ip dst -j MARK --set-mark 12$j
++				echo "2"
++				ip route flush table 12$j
++				echo "3"
++				ip rule del fwmark 12$j table 12$j
++			fi
+ 		fi
+-	else
+-		ip route del $zero_ip via $zero_route dev $zt0
+-	fi
+ 	done
+ }
+ 
+@@ -107,8 +137,8 @@ kill_z() {
+ }
+ stop_zero() {
+ 	logger -t "zerotier" "关闭zerotier"
+-	del_rules
+ 	zero_route "del"
++	del_rules
+ 	kill_z
+ 	rm -rf $config_path
+ }

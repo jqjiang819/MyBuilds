@@ -41,10 +41,13 @@ jobs:
       - name: Run Customization & Build Firmware
         run: |
           chmod +x padavan/*.sh
-          cp padavan/merge_frp.patch /opt/
-          pushd /opt/rt-n56u && git apply ../merge_frp.patch && popd
-          for m in $MODELS;
-          do
+          cp padavan/*.patch /opt/
+          pushd /opt/rt-n56u 
+          for p in ../*.patch; do
+          git apply $p
+          done
+          popd
+          for m in $MODELS; do
           ./padavan/common.sh $m
           ./padavan/apps.sh
           pushd /opt/rt-n56u/trunk
