@@ -6,13 +6,12 @@ on:
       - master
     paths:
       - '.github/workflows/padavan.yml'
-      - 'padavan/common.sh'
-      - 'padavan/apps.sh'
+      - 'padavan/*.sh'
   schedule:
     - cron: 0 16 * * 5
 
 env:
-  MODELS: "MI-R3G"
+  MODELS: "MI-R3G MI-MINI"
 
 jobs:
   build:
@@ -41,15 +40,15 @@ jobs:
       - name: Run Customization & Build Firmware
         run: |
           chmod +x padavan/*.sh
-          cp padavan/*.patch /opt/
+          cp -r padavan/patches /opt/
           pushd /opt/rt-n56u 
-          for p in ../*.patch; do
+          for p in ../patches/*.patch; do
           git apply $p
           done
           popd
           for m in $MODELS; do
           ./padavan/common.sh $m
-          ./padavan/apps.sh
+          ./padavan/apps.sh $m
           pushd /opt/rt-n56u/trunk
           sudo ./clear_tree
           sudo ./build_firmware_modify $m 0
