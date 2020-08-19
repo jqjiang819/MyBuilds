@@ -1,0 +1,90 @@
+name: OpenWRT (Official)
+
+on:
+#  release:
+#    types: [published]
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/openwrt_official.yml'
+      - 'openwrt-official/*'
+  schedule:
+    - cron: 0 16 * * 5
+  watch:
+    types: [started]
+
+jobs:
+  release:
+    runs-on: ubuntu-18.04
+    if: github.event.repository.owner.id == github.event.sender.id
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Set Date
+        run: |
+          date=$(date +%Y-%m-%d)
+          echo "::set-env name=DATE::$date"
+      
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: openwrt_${{ env.DATE }}
+          release_name: OpenWRT-${{ env.DATE }}
+          draft: false
+          prerelease: false
+
+  build:
+    runs-on:  ubuntu-18.04
+    needs: release
+    if: github.event.repository.owner.id == github.event.sender.id
+
+    name: ${{matrix.model}}-${{matrix.version}}
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [x86]
+        version: [snapshot,19.07]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+
+      - name: Environment Initialization
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo bash openwrt-official/common/init_env.sh
+          mkdir -p work
+      
+      - name: Fetch Openwrt ImageBuilder
+        run: |
+          cd work
+          bash ../openwrt-official/common/get_builder.sh ${{matrix.model}} ${{matrix.version}}
+
+      - name: Run Customizations & Build
+        run: |
+          cd work/openwrt
+          cp -r ../../openwrt-official/common/files ./
+          # cp -r ../../openwrt-official/${{matrix.model}}/files ./
+          bash ../../openwrt-official/${{matrix.model}}/build.sh
+          echo "::set-output name=status::success"
+      
+      - name: Copy Binaries
+        run: |
+          mkdir -p work/images
+          find work/openwrt/bin/targets/ -name "*img*" | xargs -i mv -f {} work/images
+
+      - name: Upload Release Assets
+        uses: csexton/release-asset-action@v2
+        with:
+          pattern: "work/images/*"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          release-url: ${{ needs.release.outputs.upload_url }}
+        
+        
+
+            
