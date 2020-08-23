@@ -47,7 +47,7 @@ jobs:
       fail-fast: false
       matrix:
         model: [x86]
-        version: [snapshot,19.07]
+        version: [snapshot]
 
     steps:
       - name: Checkout
@@ -69,7 +69,8 @@ jobs:
         run: |
           cd work/openwrt
           cp -r ../../openwrt-official/common/files ./
-          # cp -r ../../openwrt-official/${{matrix.model}}/files ./
+          cp -r ../../openwrt-official/${{matrix.model}}/files ./
+          cp ../../openwrt-official/${{matrix.model}}/packages ./pkg2install
           bash ../../openwrt-official/${{matrix.model}}/build.sh
           echo "::set-output name=status::success"
       
@@ -84,7 +85,3 @@ jobs:
           pattern: "work/images/*"
           github-token: ${{ secrets.GITHUB_TOKEN }}
           release-url: ${{ needs.release.outputs.upload_url }}
-        
-        
-
-            

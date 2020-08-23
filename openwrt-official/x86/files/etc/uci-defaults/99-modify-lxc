@@ -1,0 +1,8 @@
+#!/bin/sh
+
+sed -i "/.*repo\.turris\.cz.*/d" /usr/lib/lua/luci/model/cbi/lxc.lua
+sed -i "s/images.linuxcontainers.org/mirrors.bfsu.edu.cn\/lxc-images/g" /usr/lib/lua/luci/model/cbi/lxc.lua
+sed -i "s/images.linuxcontainers.org/mirrors.bfsu.edu.cn/g" /usr/lib/lua/luci/controller/lxc.lua
+
+uci set lxc.lxc.ssl_enabled=1
+uci commit lxc
