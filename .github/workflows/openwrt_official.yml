@@ -8,7 +8,7 @@ on:
       - master
     paths:
       - '.github/workflows/openwrt_official.yml'
-      - 'openwrt-official/*'
+      - 'openwrt-official/**'
   schedule:
     - cron: 0 16 * * 5
   watch:
