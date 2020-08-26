@@ -46,8 +46,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        model: [x86]
-        version: [snapshot]
+        model: [mir3g]
+        version: [19.07]
 
     steps:
       - name: Checkout
