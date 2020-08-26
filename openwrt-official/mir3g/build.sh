@@ -1,7 +1,6 @@
 #!/bin/bash
 
-cp -r ../../openwrt-official/mir3g/pkgs ./custom_pkgs
-echo "src custom file:custom_pkgs" >> repositories.conf
+cp ../../openwrt-official/mir3g/pkgs/*.ipk ./packages/
 
 make image \
     PROFILE=xiaomi_mir3g \

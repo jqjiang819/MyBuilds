@@ -5,11 +5,9 @@ nano
 wget
 wpad
 ipset
-zerotier
 dnsmasq-full
 dns-forwarder
 ca-certificates
-kmod-ipt-offload
 libustream-mbedtls
 ddns-scripts_dnspod
 ddns-scripts_aliyun
