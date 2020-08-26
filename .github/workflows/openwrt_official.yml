@@ -78,6 +78,7 @@ jobs:
         run: |
           mkdir -p work/images
           find work/openwrt/bin/targets/ -name "*img*" | xargs -i mv -f {} work/images
+          find work/openwrt/bin/targets/ -name "*bin" | xargs -i mv -f {} work/images
 
       - name: Upload Release Assets
         uses: csexton/release-asset-action@v2

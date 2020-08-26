@@ -6,8 +6,6 @@ on:
       - master
     paths:
       - '.github/workflows/tunsafe.yml'
-  watch:
-    types: [started]
 
 jobs:
   linux:
