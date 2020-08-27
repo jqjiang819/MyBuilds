@@ -1,0 +1,236 @@
+diff --git a/trunk/user/frp/Makefile b/trunk/user/frp/Makefile
+index f6241686a..439d154af 100644
+--- a/trunk/user/frp/Makefile
++++ b/trunk/user/frp/Makefile
+@@ -1,5 +1,5 @@
+ THISDIR := $(shell pwd)
+-FRP_VER := 0.29.0
++FRP_VER := 0.33.0
+ FRP_URL_BASE := https://github.com/fatedier/frp/releases/download
+ 
+ FRP_NAME := frp_$(FRP_VER)_linux_mipsle
+@@ -29,4 +29,5 @@ ifeq ($(CONFIG_FIRMWARE_INCLUDE_FRPS),y)
+ 	$(ROMFSINST) -p +x $(THISDIR)/$(FRP_NAME)/frps /usr/bin/frps
+ endif
+ 	$(ROMFSINST) -p +x $(THISDIR)/frp.sh /usr/bin/frp.sh
+-	$(ROMFSINST) /etc_ro/frp_script.sh
++	$(ROMFSINST) /etc_ro/frpc.ini
++	$(ROMFSINST) /etc_ro/frps.ini
+diff --git a/trunk/user/frp/frp.sh b/trunk/user/frp/frp.sh
+index 2bc1e7d20..23250f6a5 100644
+--- a/trunk/user/frp/frp.sh
++++ b/trunk/user/frp/frp.sh
+@@ -30,13 +30,22 @@ check_net()
+ 
+ frp_start () 
+ {
+-	/etc/storage/frp_script.sh
++	killall frpc frps
++	frpc_enable=`nvram get frpc_enable`
++	frps_enable=`nvram get frps_enable`
++	if [ "$frpc_enable" = "1" ] ; then
++		frpc -c /etc/storage/frp/frpc.ini 2>&1 &
++	fi
++	if [ "$frps_enable" = "1" ] ; then
++		frps -c /etc/storage/frp/frps.ini 2>&1 &
++	fi
++
+ 	sed -i '/frp/d' /etc/storage/cron/crontabs/$http_username
+ 	cat >> /etc/storage/cron/crontabs/$http_username << EOF
+ */1 * * * * /bin/sh /usr/bin/frp.sh C >/dev/null 2>&1
+ EOF
+-	[ ! -z "`pidof frpc`" ] && logger -t "frp" "frpc启动成功"
+-	[ ! -z "`pidof frps`" ] && logger -t "frp" "frps启动成功"
++	[ ! -z "`pidof frpc`" ] && logger -t "frp" "FRP客户端启动成功"
++	[ ! -z "`pidof frps`" ] && logger -t "frp" "FRP服务端启动成功"
+ }
+ 
+ frp_close () 
+@@ -44,13 +53,13 @@ frp_close ()
+ 	if [ "$frpc_enable" = "0" ]; then
+ 		if [ ! -z "`pidof frpc`" ]; then
+ 		killall -9 frpc frp_script.sh
+-		[ -z "`pidof frpc`" ] && logger -t "frp" "已停止 frpc"
++		[ -z "`pidof frpc`" ] && logger -t "frp" "已停止 FRP客户端"
+ 	    fi
+ 	fi
+ 	if [ "$frps_enable" = "0" ]; then
+ 		if [ ! -z "`pidof frps`" ]; then
+ 		killall -9 frps frp_script.sh
+-		[ -z "`pidof frps`" ] && logger -t "frp" "已停止 frps"
++		[ -z "`pidof frps`" ] && logger -t "frp" "已停止 FRP服务端"
+ 	    fi
+ 	fi
+ 	if [ "$frpc_enable" = "0" ] && [ "$frps_enable" = "0" ]; then
+diff --git a/trunk/user/frp/frpc.ini b/trunk/user/frp/frpc.ini
+new file mode 100644
+index 000000000..e62d408b9
+--- /dev/null
++++ b/trunk/user/frp/frpc.ini
+@@ -0,0 +1,9 @@
++[common]
++server_addr = 127.0.0.1
++server_port = 7000
++
++[ssh]
++type = tcp
++local_ip = 127.0.0.1
++local_port = 22
++remote_port = 6000
+\ No newline at end of file
+diff --git a/trunk/user/frp/frps.ini b/trunk/user/frp/frps.ini
+new file mode 100644
+index 000000000..4da23f996
+--- /dev/null
++++ b/trunk/user/frp/frps.ini
+@@ -0,0 +1,2 @@
++[common]
++bind_port = 7000
+\ No newline at end of file
+diff --git a/trunk/user/httpd/httpd.h b/trunk/user/httpd/httpd.h
+index 52465ce9d..be99616c7 100644
+--- a/trunk/user/httpd/httpd.h
++++ b/trunk/user/httpd/httpd.h
+@@ -34,10 +34,12 @@
+ #define STORAGE_SCRIPTS_DIR	"/etc/storage"
+ #define STORAGE_CRONTAB_DIR	"/etc/storage/cron/crontabs"
+ #define STORAGE_KOOLPROXYT_DIR	"/etc/storage/koolproxy"
++#define STORAGE_FRPXCFG_DIR     "/etc/storage/frp"
+ #define PROFILE_FIFO_UPLOAD	"/tmp/settings_u.prf"
+ #define PROFILE_FIFO_DOWNLOAD	"/tmp/settings_d.prf"
+ #define STORAGE_FIFO_FILENAME	"/tmp/storage.tar.bz2"
+ 
++
+ /* Generic MIME type handler */
+ struct mime_handler {
+ 	char *pattern;
+diff --git a/trunk/user/httpd/variables.c b/trunk/user/httpd/variables.c
+index 621f1886d..a9d609994 100644
+--- a/trunk/user/httpd/variables.c
++++ b/trunk/user/httpd/variables.c
+@@ -941,7 +941,8 @@
+ 	struct variable variables_FrpConf[] = {
+ 			{"frpc_enable", "", NULL, EVM_RESTART_FRP},
+ 			{"frps_enable", "", NULL, EVM_RESTART_FRP},
+-			{"scripts.frp_script.sh", "File", NULL, EVM_RESTART_FRP},
++			{"frpxcfg.frpc.ini", "File", NULL, EVM_RESTART_FRP},
++			{"frpxcfg.frps.ini", "File", NULL, EVM_RESTART_FRP},
+ 			{0,0,0,0}
+ 	};
+ #endif
+diff --git a/trunk/user/httpd/web_ex.c b/trunk/user/httpd/web_ex.c
+index 06d93b6e3..5773cb2a9 100644
+--- a/trunk/user/httpd/web_ex.c
++++ b/trunk/user/httpd/web_ex.c
+@@ -722,6 +722,8 @@ ej_dump(int eid, webs_t wp, int argc, char **argv)
+ 		snprintf(filename, sizeof(filename), "%s/%s", STORAGE_DNSMASQ_DIR, file+8);
+ 	else if (strncmp(file, "scripts.", 8)==0)
+ 		snprintf(filename, sizeof(filename), "%s/%s", STORAGE_SCRIPTS_DIR, file+8);
++	else if (strncmp(file, "frpxcfg.", 8)==0)
++		snprintf(filename, sizeof(filename), "%s/%s", STORAGE_FRPXCFG_DIR, file+8);
+ 	else if (strncmp(file, "crontab.", 8)==0)
+ 		snprintf(filename, sizeof(filename), "%s/%s", STORAGE_CRONTAB_DIR, nvram_safe_get("http_username"));
+ 	else
+@@ -922,6 +924,12 @@ validate_asp_apply(webs_t wp, int sid)
+ 				if (write_textarea_to_file(value, STORAGE_OVPNCLI_DIR, file_name))
+ 					restart_needed_bits |= event_mask;
+ 			}
++#endif
++#if defined (APP_FRP)
++			else if (!strncmp(v->name, "frpxcfg.", 8)) {
++				if (write_textarea_to_file(value, STORAGE_FRPXCFG_DIR, file_name))
++					restart_needed_bits |= event_mask;
++			}
+ #endif
+ 			continue;
+ 		}
+diff --git a/trunk/user/scripts/copyscripts.sh b/trunk/user/scripts/copyscripts.sh
+index effc41c33..651dd7210 100755
+--- a/trunk/user/scripts/copyscripts.sh
++++ b/trunk/user/scripts/copyscripts.sh
+@@ -13,9 +13,15 @@ if [ ! -f "/etc/storage/ad_config_script.sh" ] ; then
+ cp -rf /etc_ro/ad_config_script.sh /etc/storage/
+ chmod 755 "/etc/storage/ad_config_script.sh"
+ fi
+-if [ ! -f "/etc/storage/frp_script.sh" ] ; then
+-cp -rf /etc_ro/frp_script.sh /etc/storage/
+-chmod 755 "/etc/storage/frp_script.sh"
++if [ ! -f "/etc/storage/frp/frpc.ini" ] ; then
++mkdir -p /etc/storage/frp/
++cp -rf /etc_ro/frpc.ini /etc/storage/frp/
++chmod 644 "/etc/storage/frp/frpc.ini"
++fi
++if [ ! -f "/etc/storage/frp/frps.ini" ] ; then
++mkdir -p /etc/storage/frp/
++cp -rf /etc_ro/frps.ini /etc/storage/frp/
++chmod 644 "/etc/storage/frp/frps.ini"
+ fi
+ if [ ! -f "/etc/storage/caddy_script.sh" ] ; then
+ cp -rf /etc_ro/caddy_script.sh /etc/storage/
+diff --git a/trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp b/trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp
+index 5c85a4b4c..e6a8dcc67 100644
+--- a/trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp
++++ b/trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp
+@@ -47,7 +47,8 @@ fill_status2(frps_status());
+ }
+ 
+ function textarea_scripts_enabled(v){
+-	inputCtrl(document.form['scripts.frp_script.sh'], v);
++	inputCtrl(document.form['frpxcfg.frpc.ini'], v);
++	inputCtrl(document.form['frpxcfg.frps.ini'], v);
+ }
+ 
+ function fill_status(status_code){
+@@ -145,14 +146,14 @@ function done_validating(action){
+ 									</div>
+ 
+ 									<table width="100%" align="center" cellpadding="4" cellspacing="0" class="table">
+-									<tr> <th>frpc<#running_status#></th>
++									<tr> <th>FRP客户端<#running_status#></th>
+                                             <td id="frpc_status" colspan="2"></td>
+                                         </tr>
+-										<tr> <th>frps<#running_status#></th>
++										<tr> <th>FRP服务端<#running_status#></th>
+                                             <td id="frps_status" colspan="2"></td>
+                                         </tr>
+ 										<tr>
+-											<th width="30%"><a class="help_tooltip" href="javascript: void(0)" onmouseover="openTooltip(this, 26, 9);">启用frpc</a></th>
++											<th><a class="help_tooltip" href="javascript: void(0)" onmouseover="openTooltip(this, 26, 9);">启用客户端</a></th>
+ 											<td>
+ 													<div class="main_itoggle">
+ 													<div id="frpc_enable_on_of">
+@@ -166,7 +167,7 @@ function done_validating(action){
+ 											</td>
+ 										</tr>
+ 												<tr>
+-											<th width="30%"><a class="help_tooltip" href="javascript: void(0)" onmouseover="openTooltip(this, 26, 9);">启用frps</a></th>
++											<th><a class="help_tooltip" href="javascript: void(0)" onmouseover="openTooltip(this, 26, 9);">启用服务端</a></th>
+ 											<td>
+ 													<div class="main_itoggle">
+ 													<div id="frps_enable_on_of">
+@@ -179,16 +180,17 @@ function done_validating(action){
+ 												</div>
+ 											</td>
+ 										</tr>
+-										<tr id="row_post_wan_script">
+-											<td colspan="2">
+-												<i class="icon-hand-right"></i> <a href="javascript:spoiler_toggle('script2')"><span>frp脚本-请自行配置脚本里的相关参数</span></a>
+-												<div id="script2">
+-													<textarea rows="18" wrap="off" spellcheck="false" maxlength="314571" class="span12" name="scripts.frp_script.sh" style="font-family:'Courier New'; font-size:12px;"><% nvram_dump("scripts.frp_script.sh",""); %></textarea>
+-												</div>
++										<tr><th colspan="2" style="background-color: #E3E3E3;">配置文件</th></tr>
++										<tr id="row_frp_config">
++											<td colspan="1">
++												<span>客户端</span>
++												<textarea rows="18" wrap="off" spellcheck="false" maxlength="314571" class="span12" name="frpxcfg.frpc.ini" style="font-family:'Courier New'; font-size:12px;"><% nvram_dump("frpxcfg.frpc.ini",""); %></textarea>
++											</td>
++											<td colspan="1">
++												<span>服务端</span>
++												<textarea rows="18" wrap="off" spellcheck="false" maxlength="314571" class="span12" name="frpxcfg.frps.ini" style="font-family:'Courier New'; font-size:12px;"><% nvram_dump("frpxcfg.frps.ini",""); %></textarea>
+ 											</td>
+ 										</tr>
+-										
+-
+ 										<tr>
+ 											<td colspan="2" style="border-top: 0 none;">
+ 												<br />
