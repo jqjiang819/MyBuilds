@@ -105,10 +105,10 @@ index 52465ce9d..be99616c7 100644
  struct mime_handler {
  	char *pattern;
 diff --git a/trunk/user/httpd/variables.c b/trunk/user/httpd/variables.c
-index 621f1886d..5d65b466d 100644
+index 621f1886d..f3daf54ae 100644
 --- a/trunk/user/httpd/variables.c
 +++ b/trunk/user/httpd/variables.c
-@@ -108,8 +108,8 @@
+@@ -108,8 +108,14 @@
  		};
  	struct variable variables_ZeroConf_ZeroList[] = {
  			{"zero_enable_x", "24", NULL, FALSE},
@@ -116,10 +116,16 @@ index 621f1886d..5d65b466d 100644
 -			{"zero_route_x", "24", NULL, FALSE},
 +			{"zero_id_x", "24", NULL, FALSE},
 +			{"zero_note_x", "24", NULL, FALSE},
++			{0,0,0,0}
++		};
++	struct variable variables_ZeroConf_RouteList[] = {
++			{"zero_route_en_x", "24", NULL, FALSE},
++			{"zero_route_src_x", "24", NULL, FALSE},
++			{"zero_route_gw_x", "24", NULL, FALSE},
  			{0,0,0,0}
  		};
  	struct variable variables_SspConf_SspList[] = {
-@@ -941,7 +941,8 @@
+@@ -941,7 +947,8 @@
  	struct variable variables_FrpConf[] = {
  			{"frpc_enable", "", NULL, EVM_RESTART_FRP},
  			{"frps_enable", "", NULL, EVM_RESTART_FRP},
@@ -129,14 +135,18 @@ index 621f1886d..5d65b466d 100644
  			{0,0,0,0}
  	};
  #endif
-@@ -983,8 +984,8 @@
+@@ -981,10 +988,11 @@
+ #if defined(APP_ZEROTIER)
+ 	struct variable variables_ZeroConf[] = {
  			{"zerotier_enable", "", NULL, EVM_RESTART_ZEROTIER},
- 			{"zerotier_id", "", NULL, EVM_RESTART_ZEROTIER},
+-			{"zerotier_id", "", NULL, EVM_RESTART_ZEROTIER},
  			{"zerotier_nat", "", NULL, EVM_RESTART_ZEROTIER},
 -			{"zero_staticnum_x", "", NULL, EVM_RESTART_ZEROTIER},
 -			{"ZeroList", "Group", ARGV((char*)variables_ZeroConf_ZeroList, "8", "55", "zero_staticnum_x"), EVM_RESTART_ZEROTIER},
 +			{"zero_netsnum_x", "", NULL, EVM_RESTART_ZEROTIER},
++			{"zero_routesnum_x", "", NULL, EVM_RESTART_ZEROTIER},
 +			{"ZeroList", "Group", ARGV((char*)variables_ZeroConf_ZeroList, "8", "55", "zero_netsnum_x"), EVM_RESTART_ZEROTIER},
++			{"RouteList", "Group", ARGV((char*)variables_ZeroConf_RouteList, "8", "55", "zero_routesnum_x"), EVM_RESTART_ZEROTIER},
  			{0,0,0,0}
  	};
  #endif
@@ -346,10 +356,30 @@ index 5c85a4b4c..0e5db2bf8 100644
  											<td colspan="2" style="border-top: 0 none;">
  												<br />
 diff --git a/trunk/user/www/n56u_ribbon_fixed/Advanced_zerotier.asp b/trunk/user/www/n56u_ribbon_fixed/Advanced_zerotier.asp
-index 57f5c1047..31153e916 100644
+index 57f5c1047..de8905574 100644
 --- a/trunk/user/www/n56u_ribbon_fixed/Advanced_zerotier.asp
 +++ b/trunk/user/www/n56u_ribbon_fixed/Advanced_zerotier.asp
-@@ -56,6 +56,7 @@ showMRULESList();
+@@ -45,17 +45,27 @@ if(m_list.length > 0){
+ 		m_list[i][mlist_ifield] = i;
+ 	}
+ }
++var m_list2 = [<% get_nvram_list("ZeroConf", "RouteList"); %>];
++var mlist2_ifield = 4;
++if(m_list2.length > 0){
++	var m_list2_ifield = m_list2[0].length;
++	for (var i = 0; i < m_list2.length; i++) {
++		m_list2[i][mlist2_ifield] = i;
++	}
++}
+ var isMenuopen = 0;
+ function initial(){
+ 	show_banner(2);
+ 	show_menu(5,17,0);
+ showmenu();
+ showMRULESList();
++showMROUTESList();
+ 	show_footer();
+ 
  }
  function showmenu(){
  showhide_div('allink', found_app_aliddns());
@@ -357,7 +387,7 @@ index 57f5c1047..31153e916 100644
  }
  function applyRule(){
  //	if(validForm()){
-@@ -76,28 +77,21 @@ function done_validating(action){
+@@ -76,26 +86,53 @@ function done_validating(action){
  function markGroupRULES(o, c, b) {
  	document.form.group_id.value = "ZeroList";
  	if(b == " Add "){
@@ -370,40 +400,111 @@ index 57f5c1047..31153e916 100644
  			alert("<#JS_fieldblank#>");
 -			document.form.zero_ip_x_0.focus();
 -			document.form.zero_ip_x_0.select();
--			return false;
--		}else if(document.form.zero_route_x_0.value==""){
--			alert("<#JS_fieldblank#>");
--			document.form.zero_route_x_0.focus();
--			document.form.zero_route_x_0.select();
 +			document.form.zero_id_x_0.focus();
 +			document.form.zero_id_x_0.select();
  			return false;
+-		}else if(document.form.zero_route_x_0.value==""){
++		}else{
++			for(i=0; i<m_list.length; i++){
++				if(document.form.zero_id_x_0.value==m_list[i][0]) {
++					alert('<#JS_duplicate#>' + ' (' + m_list[i][0] + ')' );
++					document.form.zero_id_x_0.focus();
++					document.form.zero_id_x_0.select();
++					return false;
++				}
++			}
++		}
++	}
++	pageChanged = 0;
++	document.form.action_mode.value = b;
++	return true;
++}
++
++function markGroupROUTES(o, c, b) {
++	document.form.group_id.value = "RouteList";
++	if(b == " Add "){
++		if (document.form.zero_routesnum_x_0.value >= c){
++			alert("<#JS_itemlimit1#> " + c + " <#JS_itemlimit2#>");
++			return false;
++		}else if (document.form.zero_route_src_x_0.value==""){
+ 			alert("<#JS_fieldblank#>");
+-			document.form.zero_route_x_0.focus();
+-			document.form.zero_route_x_0.select();
++			document.form.zero_route_src_x_0.focus();
++			document.form.zero_route_src_x_0.select();
++			return false;
++		}else if(document.form.zero_route_gw_x_0.value==""){
++			alert("<#JS_fieldblank#>");
++			document.form.zero_route_gw_x_0.focus();
++			document.form.zero_route_gw_x_0.select();
+ 			return false;
  		}else{
- 			for(i=0; i<m_list.length; i++){
+-			for(i=0; i<m_list.length; i++){
 -				if(document.form.zero_ip_x_0.value==m_list[i][0]) {
 -				if(document.form.zero_route_x_0.value==m_list[i][1]) {
 -					alert('<#JS_duplicate#>' + ' (' + m_list[i][1] + ')' );
 -					document.form.zero_ip_x_0.focus();
 -					document.form.zero_ip_x_0.select();
-+				if(document.form.zero_id_x_0.value==m_list[i][0]) {
-+					alert('<#JS_duplicate#>' + ' (' + m_list[i][0] + ')' );
-+					document.form.zero_id_x_0.focus();
-+					document.form.zero_id_x_0.select();
++			for(i=0; i<m_list2.length; i++){
++				if(document.form.zero_route_src_x_0.value==m_list2[i][0]) {
++				if(document.form.zero_route_gw_x_0.value==m_list2[i][1]) {
++					alert('<#JS_duplicate#>' + ' (' + m_list2[i][1] + ')' );
++					document.form.zero_route_src_x_0.focus();
++					document.form.zero_route_src_x_0.select();
  					return false;
--					}
+ 					}
  				}
- 			}
- 		}
-@@ -164,7 +158,7 @@ function showMRULESList(){
- 	<input type="hidden" name="group_id" value="ZeroList">
+@@ -136,6 +173,35 @@ function showMRULESList(){
+ 	$("MRULESList_Block").innerHTML = code;
+ }
+ 
++function showMROUTESList(){
++	var code = '<table width="100%" cellspacing="0" cellpadding="3" class="table table-list">';
++	if(m_list2.length == 0)
++		code +='<tr><td colspan="4" style="text-align: center;"><div class="alert alert-info"><#IPConnection_VSList_Norule#></div></td></tr>';
++	else{
++	    for(var i = 0; i < m_list2.length; i++){
++		if(m_list2[i][0] == 0)
++		zero_enable="已禁用";
++		else{
++		zero_enable="已启用";
++		}
++		code +='<tr id="rowrl' + i + '">';
++		code +='<td width="20%">&nbsp;' + zero_enable + '</td>';
++		code +='<td width="40%">&nbsp;' + m_list2[i][1] + '</td>';
++		code +='<td width="40%">' + m_list2[i][2] + '</td>';
++		code +='<td width="50%"></td>';
++		code +='<center><td width="20%" style="text-align: center;"><input type="checkbox" name="RouteList_s" value="' + m_list2[i][mlist_ifield] + '" onClick="changeBgColorrl(this,' + i + ');" id="check' + m_list2[i][mlist2_ifield] + '"></td></center>';
++		
++		code +='</tr>';
++	    }
++		code += '<tr>';
++		code += '<td colspan="4">&nbsp;</td>'
++		code += '<td><button class="btn btn-danger" type="submit" onclick="markGroupROUTES(this, 64, \' Del \');" name="RouteList"><i class="icon icon-minus icon-white"></i></button></td>';
++		code += '</tr>'
++	}
++	code +='</table>';
++	$("MROUTESList_Block").innerHTML = code;
++}
++
+ </script>
+ </head>
+ 
+@@ -161,10 +227,11 @@ function showMRULESList(){
+ 	<input type="hidden" name="next_page" value="">
+ 	<input type="hidden" name="next_host" value="">
+ 	<input type="hidden" name="sid_list" value="ZeroConf;">
+-	<input type="hidden" name="group_id" value="ZeroList">
++	<input type="hidden" name="group_id" value="">
  	<input type="hidden" name="action_mode" value="">
  	<input type="hidden" name="action_script" value="">
 -	<input type="hidden" name="zero_staticnum_x_0" value="<% nvram_get_x("ZeroList", "zero_staticnum_x"); %>" readonly="1" />
 +	<input type="hidden" name="zero_netsnum_x_0" value="<% nvram_get_x("ZeroList", "zero_netsnum_x"); %>" readonly="1" />
++	<input type="hidden" name="zero_routesnum_x_0" value="<% nvram_get_x("RouteList", "zero_routesnum_x"); %>" readonly="1" />
  
  	<div class="container-fluid">
  		<div class="row-fluid">
-@@ -186,29 +180,32 @@ function showMRULESList(){
+@@ -186,29 +253,32 @@ function showMRULESList(){
  				<div class="row-fluid">
  					<div class="span12">
  						<div class="box well grad_colour_dark_blue">
@@ -450,7 +551,7 @@ index 57f5c1047..31153e916 100644
  													<div class="main_itoggle">
  													<div id="zerotier_enable_on_of">
  														<input type="checkbox" id="zerotier_enable_fake" <% nvram_match_x("", "zerotier_enable", "1", "value=1 checked"); %><% nvram_match_x("", "zerotier_enable", "0", "value=0"); %>  />
-@@ -221,15 +218,9 @@ function showMRULESList(){
+@@ -221,15 +291,9 @@ function showMRULESList(){
  											</td>
  
  										</tr>
@@ -469,7 +570,7 @@ index 57f5c1047..31153e916 100644
  													<div class="main_itoggle">
  													<div id="zerotier_nat_on_of">
  														<input type="checkbox" id="zerotier_nat_fake" <% nvram_match_x("", "zerotier_nat", "1", "value=1 checked"); %><% nvram_match_x("", "zerotier_nat", "0", "value=0"); %>  />
-@@ -239,30 +230,28 @@ function showMRULESList(){
+@@ -239,30 +303,28 @@ function showMRULESList(){
  													<input type="radio" value="1" name="zerotier_nat" id="zerotier_nat_1" class="input" value="1" <% nvram_match_x("", "zerotier_nat", "1", "checked"); %> /><#checkbox_Yes#>
  													<input type="radio" value="0" name="zerotier_nat" id="zerotier_nat_0" class="input" value="0" <% nvram_match_x("", "zerotier_nat", "0", "checked"); %> /><#checkbox_No#>
  												</div>
@@ -487,8 +588,9 @@ index 57f5c1047..31153e916 100644
  											</td>
  										</tr>
  									</table>
- <table width="100%" align="center" cellpadding="4" cellspacing="0" class="table">
+-<table width="100%" align="center" cellpadding="4" cellspacing="0" class="table">
 -	<tr> <th colspan="4">需要访问其它zerotier的内网LAN网段,IP和网关和zerotier后台对应即可(本机的LAN网段不用填进去)</th></tr>
++<table width="100%" align="center" cellpadding="4" cellspacing="0" class="table" style="margin: 0;">
 +	<tr><th colspan="4" style="background-color: #E3E3E3;">Zerotier网络列表</th></tr>
                                          <tr id="row_rules_caption">
  										 
@@ -505,7 +607,7 @@ index 57f5c1047..31153e916 100644
                                              </th>
                                              <th width="5%">
                                                  <center><i class="icon-th-list"></i></center>
-@@ -275,10 +264,10 @@ function showMRULESList(){
+@@ -275,15 +337,14 @@ function showMRULESList(){
  													<option value="0" <% nvram_match_x("","zero_enable_x_0", "0","selected"); %>>否</option>
  												</select>
                                             </th>
@@ -518,8 +620,56 @@ index 57f5c1047..31153e916 100644
                                              </th>
                                           <th>
                                                  <button class="btn" style="max-width: 219px" type="submit" onclick="return markGroupRULES(this, 64, ' Add ');" name="markGroupRULES2" value="<#CTL_add#>" size="12"><i class="icon icon-plus"></i></button>
+                                             </th>
+-                                            </td>
+                                         </tr>
+                                         <tr id="row_rules_body" >
+                                             <td colspan="4" style="border-top: 0 none; padding: 0px;">
+@@ -291,8 +352,41 @@ function showMRULESList(){
+                                             </td>
+                                         </tr>
+ 										</table>
++										<table width="100%" align="center" cellpadding="4" cellspacing="0" class="table">
++											<tr><th colspan="4" style="background-color: #E3E3E3;">自定义路由</th></tr>
++										     <tr id="row_rules_caption">
++												<th width="10%">
++												启用 <i class="icon-circle-arrow-down"></i>
++												</th>
++												<th width="20%">
++												IP/IPSET <i class="icon-circle-arrow-down"></i>
++												</th>
++												<th width="25%">
++												网关 <i class="icon-circle-arrow-down"></i>
++												</th>
++												<th width="5%">
++												<center><i class="icon-th-list"></i></center>
++												</th>
++												</tr>
++												<tr>
++												<th>
++													<select name="zero_route_en_x_0" class="input" style="width: 100px">
++														<option value="1" <% nvram_match_x("","zero_route_en_x_0", "0","selected"); %>>是</option>
++														<option value="0" <% nvram_match_x("","zero_route_en_x_0", "0","selected"); %>>否</option>
++													</select>
++												</th>
++												<th><input type="text" maxlength="255" class="span12" style="width: 200px" size="200" name="zero_route_src_x_0" value="<% nvram_get_x("", "zero_route_src_x_0"); %>"/></th>
++												<th><input type="text" maxlength="255" class="span12" style="width: 200px" size="200" name="zero_route_gw_x_0" value="<% nvram_get_x("", "zero_route_gw_x_0"); %>" /></th>
++												<th><button class="btn" style="max-width: 219px" type="submit" onclick="return markGroupROUTES(this, 64, ' Add ');" name="markGroupROUTES2" value="<#CTL_add#>" size="12"><i class="icon icon-plus"></i></button></th>
++												</tr>
++												<tr id="row_rules_body" >
++													<td colspan="4" style="border-top: 0 none; padding: 0px;">
++														<div id="MROUTESList_Block"></div>
++													</td>
++												</tr>
++												</table>
+ 										<tr>
+-											<td colspan="4" style="border-top: 0 none;">
++											<td colspan="4" style="border-top: 0 none; margin-bottom: 18px;">
+ 												<br />
+ 												<center><input class="btn btn-primary" style="width: 219px" type="button" value="<#CTL_apply#>" onclick="applyRule()" /></center>
+ 											</td>
 diff --git a/trunk/user/www/n56u_ribbon_fixed/state.js b/trunk/user/www/n56u_ribbon_fixed/state.js
-index 45cc7a600..54626de3f 100644
+index 5fa1b3dfa..ac359885c 100644
 --- a/trunk/user/www/n56u_ribbon_fixed/state.js
 +++ b/trunk/user/www/n56u_ribbon_fixed/state.js
 @@ -422,13 +422,10 @@ if (found_app_adguardhome()){
@@ -579,7 +729,7 @@ index 45cc7a600..54626de3f 100644
  } else menuL2_link.push("");
  if (found_app_caddy()){
 diff --git a/trunk/user/zerotier/zerotier.sh b/trunk/user/zerotier/zerotier.sh
-index bc4aa82fa..7a3ccba80 100755
+index bc4aa82fa..ccc484750 100755
 --- a/trunk/user/zerotier/zerotier.sh
 +++ b/trunk/user/zerotier/zerotier.sh
 @@ -31,7 +31,7 @@ start_instance() {
@@ -596,8 +746,8 @@ index bc4aa82fa..7a3ccba80 100755
  
  add_join() {
 -		touch $config_path/networks.d/$1.conf
-+	netsnum=`nvram get zero_staticnum_x`
-+	for i in $(seq 1 $rulesnum)
++	netsnum=`nvram get zero_netsnum_x`
++	for i in $(seq 1 $netsnum)
 +	do
 +		j=`expr $i - 1`
 +		zero_enable=`nvram get zero_enable_x$j`
@@ -607,7 +757,7 @@ index bc4aa82fa..7a3ccba80 100755
  }
  
  
-@@ -47,52 +54,37 @@ rules() {
+@@ -47,52 +54,88 @@ rules() {
  	while [ "$(ifconfig | grep zt | awk '{print $1}')" = "" ]; do
  		sleep 1
  	done
@@ -630,6 +780,11 @@ index bc4aa82fa..7a3ccba80 100755
 -
 +	zts=$(ifconfig | grep zt | awk '{print $1}')
 +	nat_enable=$(nvram get zerotier_nat)
++	# for ipset fwmark
++	iptables -t mangle -N fwmark
++	iptables -t mangle -A PREROUTING -j fwmark
++	iptables -t mangle -A OUTPUT -j fwmark
++	iptables -t mangle -A INPUT -j fwmark
 +	for ztn in $zts
 +	do
 +		logger -t "zerotier" "zt interface $ztn started!"
@@ -643,6 +798,8 @@ index bc4aa82fa..7a3ccba80 100755
 +			done
 +			ip_segment=`ip route | grep "dev $ztn  proto" | awk '{print $1}'`
 +			iptables -t nat -A POSTROUTING -s $ip_segment -j MASQUERADE
++			# disable rp_filter for zerotier devs
++			echo 0 > /proc/sys/net/ipv4/conf/$ztn/rp_filter
 +		fi
 +	done
  }
@@ -656,26 +813,14 @@ index bc4aa82fa..7a3ccba80 100755
 -	iptables -D INPUT -i $zt0 -j ACCEPT 2>/dev/null
 -	iptables -t nat -D POSTROUTING -o $zt0 -j MASQUERADE 2>/dev/null
 -	iptables -t nat -D POSTROUTING -s $ip_segment -j MASQUERADE 2>/dev/null
--}
--
--zero_route(){
--	rulesnum=`nvram get zero_staticnum_x`
--	for i in $(seq 1 $rulesnum)
 +	zts=$(ifconfig | grep zt | awk '{print $1}')
++	# for ipset fwmark
++	iptables -t mangle -D PREROUTING -j fwmark >/dev/null
++	iptables -t mangle -D OUTPUT -j fwmark >/dev/null
++	iptables -t mangle -D INPUT -j fwmark >/dev/null
++	iptables -t mangle -X fwmark >/dev/null
 +	for ztn in $zts
- 	do
--		j=`expr $i - 1`
--		route_enable=`nvram get zero_enable_x$j`
--		zero_ip=`nvram get zero_ip_x$j`
--		zero_route=`nvram get zero_route_x$j`
--		if [ "$1" = "add" ]; then
--		if [ $route_enable -ne 0 ]; then
--			ip route add $zero_ip via $zero_route dev $zt0
--			echo "$zt0"
--		fi
--	else
--		ip route del $zero_ip via $zero_route dev $zt0
--	fi
++	do
 +		ip_segment=`ip route | grep "dev $ztn  proto" | awk '{print $1}'`
 +		iptables -D FORWARD -i $ztn -j ACCEPT 2>/dev/null
 +		iptables -D FORWARD -o $ztn -j ACCEPT 2>/dev/null
@@ -683,10 +828,61 @@ index bc4aa82fa..7a3ccba80 100755
 +		iptables -D INPUT -i $ztn -j ACCEPT 2>/dev/null
 +		iptables -t nat -D POSTROUTING -o $ztn -j MASQUERADE 2>/dev/null
 +		iptables -t nat -D POSTROUTING -s $ip_segment -j MASQUERADE 2>/dev/null
++		echo 1 > /proc/sys/net/ipv4/conf/$ztn/rp_filter
++	done
+ }
+ 
+-zero_route(){
+-	rulesnum=`nvram get zero_staticnum_x`
+-	for i in $(seq 1 $rulesnum)
++routes() {
++	routesnum=`nvram get zero_routesnum_x`
++	for i in $(seq 1 $routesnum)
+ 	do
+ 		j=`expr $i - 1`
+-		route_enable=`nvram get zero_enable_x$j`
+-		zero_ip=`nvram get zero_ip_x$j`
+-		zero_route=`nvram get zero_route_x$j`
++		zero_route_en=`nvram get zero_route_en_x$j`
++		zero_route_src=`nvram get zero_route_src_x$j`
++		zero_route_gw=`nvram get zero_route_gw_x$j`
++		zero_route_src_type=`echo $zero_route_src | grep -E "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(/[0-9]{1,2})?$"`
+ 		if [ "$1" = "add" ]; then
+-		if [ $route_enable -ne 0 ]; then
+-			ip route add $zero_ip via $zero_route dev $zt0
+-			echo "$zt0"
++			if [ $route_enable -ne 0 ]; then
++				logger -t "zerotier" "设置到 $zero_ip 的转发规则"
++				if [ "$zero_route_src_type" = "$zero_route_src" ]; then
++					ip route add $zero_route_src via $zero_route_gw
++				else
++					ipset list $zero_route_src
++					if [ $? != 0 ]; then
++						ipset create $zero_route_src hash:ip
++					fi
++					iptables -t mangle -A fwmark -m set --match-set $zero_route_src dst -j MARK --set-mark 12$j
++					ip route flush table 12$j
++					ip route add default via $zero_route_gw table 12$j
++					ip rule add fwmark 12$j table 12$j
++				fi
++			fi
++		else
++			logger -t "zerotier" "清除到 $zero_route_src 的转发规则"
++			if [ "$zero_route_src_type" = "$zero_route_src" ]; then
++				ip route del $zero_route_src via $zero_route_gw
++			else
++				iptables -t mangle -D fwmark -m set --match-set $zero_route_src dst -j MARK --set-mark 12$j
++				ip route flush table 12$j
++				ip rule del fwmark 12$j table 12$j
++			fi
+ 		fi
+-	else
+-		ip route del $zero_ip via $zero_route dev $zt0
+-	fi
  	done
  }
  
-@@ -108,7 +100,6 @@ kill_z() {
+@@ -108,7 +151,6 @@ kill_z() {
  stop_zero() {
  	logger -t "zerotier" "关闭zerotier"
  	del_rules
