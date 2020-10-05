@@ -10,9 +10,6 @@ on:
   schedule:
     - cron: 0 16 * * 5
 
-env:
-  MODELS: "MI-R3G MI-MINI"
-
 jobs:
   release:
     runs-on: ubuntu-18.04
@@ -45,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        model: [MI-R3G, MI-MINI]
+        model: [MI-R3G, MI-MINI, RM2100]
 
     steps:
       - name: Checkout
