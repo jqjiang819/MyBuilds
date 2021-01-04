@@ -7,8 +7,10 @@ on:
     paths:
       - '.github/workflows/padavan.yml'
       - 'padavan/**'
-  schedule:
-    - cron: 0 16 * * 5
+  # schedule:
+  #   - cron: 0 16 * * 5
+  watch:
+    types: [started]
 
 jobs:
   release:
@@ -18,9 +20,9 @@ jobs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       - name: Set Date
+        id: date
         run: |
-          date=$(date +%Y-%m-%d)
-          echo "::set-env name=DATE::$date"
+          echo "::set-output name=build::$(date +"%Y.%m.%d-%H%M")"
       
       - name: Create Release
         id: create_release
@@ -28,8 +30,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: padavan_${{ env.DATE }}
-          release_name: Padavan-${{ env.DATE }}
+          tag_name: padavan_${{ steps.date.outputs.build }}
+          release_name: Padavan-${{ steps.date.outputs.build }}
           draft: false
           prerelease: false
 
