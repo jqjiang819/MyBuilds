@@ -1,11 +1,11 @@
 diff --git a/trunk/user/frp/Makefile b/trunk/user/frp/Makefile
-index f6241686a..439d154af 100644
+index f624168..11a4f48 100644
 --- a/trunk/user/frp/Makefile
 +++ b/trunk/user/frp/Makefile
 @@ -1,5 +1,5 @@
  THISDIR := $(shell pwd)
 -FRP_VER := 0.29.0
-+FRP_VER := 0.33.0
++FRP_VER := 0.35.1
  FRP_URL_BASE := https://github.com/fatedier/frp/releases/download
  
  FRP_NAME := frp_$(FRP_VER)_linux_mipsle
@@ -17,7 +17,7 @@ index f6241686a..439d154af 100644
 +	$(ROMFSINST) /etc_ro/frpc.ini
 +	$(ROMFSINST) /etc_ro/frps.ini
 diff --git a/trunk/user/frp/frp.sh b/trunk/user/frp/frp.sh
-index 2bc1e7d20..23250f6a5 100644
+index 2bc1e7d..c7479af 100644
 --- a/trunk/user/frp/frp.sh
 +++ b/trunk/user/frp/frp.sh
 @@ -30,13 +30,22 @@ check_net()
@@ -41,8 +41,8 @@ index 2bc1e7d20..23250f6a5 100644
  EOF
 -	[ ! -z "`pidof frpc`" ] && logger -t "frp" "frpc启动成功"
 -	[ ! -z "`pidof frps`" ] && logger -t "frp" "frps启动成功"
-+	[ ! -z "`pidof frpc`" ] && logger -t "frp" "FRP客户端启动成功"
-+	[ ! -z "`pidof frps`" ] && logger -t "frp" "FRP服务端启动成功"
++	[ ! -z "`pidof frpc`" ] && logger -t "frp" "frp客户端启动成功"
++	[ ! -z "`pidof frps`" ] && logger -t "frp" "frp服务端启动成功"
  }
  
  frp_close () 
@@ -51,20 +51,20 @@ index 2bc1e7d20..23250f6a5 100644
  		if [ ! -z "`pidof frpc`" ]; then
  		killall -9 frpc frp_script.sh
 -		[ -z "`pidof frpc`" ] && logger -t "frp" "已停止 frpc"
-+		[ -z "`pidof frpc`" ] && logger -t "frp" "已停止 FRP客户端"
++		[ -z "`pidof frpc`" ] && logger -t "frp" "已停止 frp客户端"
  	    fi
  	fi
  	if [ "$frps_enable" = "0" ]; then
  		if [ ! -z "`pidof frps`" ]; then
  		killall -9 frps frp_script.sh
 -		[ -z "`pidof frps`" ] && logger -t "frp" "已停止 frps"
-+		[ -z "`pidof frps`" ] && logger -t "frp" "已停止 FRP服务端"
++		[ -z "`pidof frps`" ] && logger -t "frp" "已停止 frp服务端"
  	    fi
  	fi
  	if [ "$frpc_enable" = "0" ] && [ "$frps_enable" = "0" ]; then
 diff --git a/trunk/user/frp/frpc.ini b/trunk/user/frp/frpc.ini
 new file mode 100644
-index 000000000..e62d408b9
+index 0000000..e62d408
 --- /dev/null
 +++ b/trunk/user/frp/frpc.ini
 @@ -0,0 +1,9 @@
@@ -80,7 +80,7 @@ index 000000000..e62d408b9
 \ No newline at end of file
 diff --git a/trunk/user/frp/frps.ini b/trunk/user/frp/frps.ini
 new file mode 100644
-index 000000000..4da23f996
+index 0000000..4da23f9
 --- /dev/null
 +++ b/trunk/user/frp/frps.ini
 @@ -0,0 +1,2 @@
@@ -88,7 +88,7 @@ index 000000000..4da23f996
 +bind_port = 7000
 \ No newline at end of file
 diff --git a/trunk/user/httpd/httpd.h b/trunk/user/httpd/httpd.h
-index 52465ce9d..be99616c7 100644
+index 52465ce..be99616 100644
 --- a/trunk/user/httpd/httpd.h
 +++ b/trunk/user/httpd/httpd.h
 @@ -34,10 +34,12 @@
@@ -105,7 +105,7 @@ index 52465ce9d..be99616c7 100644
  struct mime_handler {
  	char *pattern;
 diff --git a/trunk/user/httpd/variables.c b/trunk/user/httpd/variables.c
-index 621f1886d..a9d609994 100644
+index 56ae235..4971510 100644
 --- a/trunk/user/httpd/variables.c
 +++ b/trunk/user/httpd/variables.c
 @@ -941,7 +941,8 @@
@@ -119,7 +119,7 @@ index 621f1886d..a9d609994 100644
  	};
  #endif
 diff --git a/trunk/user/httpd/web_ex.c b/trunk/user/httpd/web_ex.c
-index 06d93b6e3..5773cb2a9 100644
+index 06d93b6..5773cb2 100644
 --- a/trunk/user/httpd/web_ex.c
 +++ b/trunk/user/httpd/web_ex.c
 @@ -722,6 +722,8 @@ ej_dump(int eid, webs_t wp, int argc, char **argv)
@@ -145,7 +145,7 @@ index 06d93b6e3..5773cb2a9 100644
  			continue;
  		}
 diff --git a/trunk/user/scripts/copyscripts.sh b/trunk/user/scripts/copyscripts.sh
-index effc41c33..651dd7210 100755
+index effc41c..651dd72 100755
 --- a/trunk/user/scripts/copyscripts.sh
 +++ b/trunk/user/scripts/copyscripts.sh
 @@ -13,9 +13,15 @@ if [ ! -f "/etc/storage/ad_config_script.sh" ] ; then
@@ -168,7 +168,7 @@ index effc41c33..651dd7210 100755
  if [ ! -f "/etc/storage/caddy_script.sh" ] ; then
  cp -rf /etc_ro/caddy_script.sh /etc/storage/
 diff --git a/trunk/user/www/n56u_ribbon_fixed/Advanced_aliddns.asp b/trunk/user/www/n56u_ribbon_fixed/Advanced_aliddns.asp
-index 1cf6237c2..86b3fd694 100644
+index 1cf6237..86b3fd6 100644
 --- a/trunk/user/www/n56u_ribbon_fixed/Advanced_aliddns.asp
 +++ b/trunk/user/www/n56u_ribbon_fixed/Advanced_aliddns.asp
 @@ -48,6 +48,7 @@ function initial(){
@@ -210,7 +210,7 @@ index 1cf6237c2..86b3fd694 100644
  									<div id="tabMenu" class="submenuBlock"></div>
  									<div class="alert alert-info" style="margin: 10px;">使用 Aliddns 实现顶级个人域名的 ddns 服务。 <a href="https://www.aliyun.com" target="blank"><i><u>Aliddns 主页</u></i></a>
 diff --git a/trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp b/trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp
-index 5c85a4b4c..64ed5614e 100644
+index 5c85a4b..89e2e82 100644
 --- a/trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp
 +++ b/trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp
 @@ -1,7 +1,7 @@
@@ -275,11 +275,11 @@ index 5c85a4b4c..64ed5614e 100644
  
  									<table width="100%" align="center" cellpadding="4" cellspacing="0" class="table">
 -									<tr> <th>frpc<#running_status#></th>
-+									<tr> <th>FRP客户端<#running_status#></th>
++									<tr> <th>客户端<#running_status#></th>
                                              <td id="frpc_status" colspan="2"></td>
                                          </tr>
 -										<tr> <th>frps<#running_status#></th>
-+										<tr> <th>FRP服务端<#running_status#></th>
++										<tr> <th>服务端<#running_status#></th>
                                              <td id="frps_status" colspan="2"></td>
                                          </tr>
  										<tr>
@@ -324,7 +324,7 @@ index 5c85a4b4c..64ed5614e 100644
  											<td colspan="2" style="border-top: 0 none;">
  												<br />
 diff --git a/trunk/user/www/n56u_ribbon_fixed/Advanced_zerotier.asp b/trunk/user/www/n56u_ribbon_fixed/Advanced_zerotier.asp
-index 57f5c1047..cdec73d1f 100644
+index 57f5c10..cdec73d 100644
 --- a/trunk/user/www/n56u_ribbon_fixed/Advanced_zerotier.asp
 +++ b/trunk/user/www/n56u_ribbon_fixed/Advanced_zerotier.asp
 @@ -56,6 +56,7 @@ showMRULESList();
@@ -447,7 +447,7 @@ index 57f5c1047..cdec73d1f 100644
  								</div>
  							</div>
 diff --git a/trunk/user/www/n56u_ribbon_fixed/state.js b/trunk/user/www/n56u_ribbon_fixed/state.js
-index 5fa1b3dfa..f25d96312 100644
+index 4eaab77..15311a1 100644
 --- a/trunk/user/www/n56u_ribbon_fixed/state.js
 +++ b/trunk/user/www/n56u_ribbon_fixed/state.js
 @@ -422,13 +422,10 @@ if (found_app_adguardhome()){
@@ -504,7 +504,7 @@ index 5fa1b3dfa..f25d96312 100644
  } else menuL2_link.push("");
  if (found_app_caddy()){
 diff --git a/trunk/user/zerotier/zerotier.sh b/trunk/user/zerotier/zerotier.sh
-index bc4aa82fa..24923efbb 100755
+index bc4aa82..1b202e2 100755
 --- a/trunk/user/zerotier/zerotier.sh
 +++ b/trunk/user/zerotier/zerotier.sh
 @@ -54,6 +54,11 @@ rules() {
@@ -588,7 +588,18 @@ index bc4aa82fa..24923efbb 100755
  	done
  }
  
-@@ -107,8 +141,8 @@ kill_z() {
+@@ -100,15 +134,18 @@ start_zero() {
+ 	logger -t "zerotier" "正在启动zerotier"
+ 	kill_z
+ 	start_instance 'zerotier'
+-
++	ln -sf /etc/storage/zerotier-one /var/lib/zerotier-one
++	if [ -f "/etc/storage/post_zerotier_script.sh" ]; then
++		/etc/storage/post_zerotier_script.sh
++	fi
+ }
+ kill_z() {
+ 	killall -9 zerotier-one
  }
  stop_zero() {
  	logger -t "zerotier" "关闭zerotier"
